@@ -1,20 +1,12 @@
-from experiment_2 import Experiment
+from experiment import Experiment
 from utils.plotter import plotter
 import numpy as np
 from scipy.stats import kstest, anderson, norm
+from scipy import special
 import random
-
-
-# def fitness_function(arr, statistic):
-#     if statistic == 'KS':
-#         ksstat, p_value = kstest(np.array(arr), "norm", args=(0, 0.2))
-#         res = [ksstat, p_value]
-#     #fitness = np.abs(ksstat-0.5)
-#     elif statistic == 'Anderson':
-#         andtest = anderson(arr)
-#         res = [andtest.fit_result.params[1]-0.2, andtest.fit_result.params[0]]
-
-#     return res
+import yaml
+from datetime import datetime
+import os
 
 
 class RayOpt:
@@ -31,6 +23,7 @@ class RayOpt:
         self.best_fitness = 10000000000000
         self.best_ind = None
         self.threshold = settings['threshold']
+        self.path = settings['path']
 
     def generate_init_pop(self):
         for _ in range(self.pop_size):
@@ -39,21 +32,8 @@ class RayOpt:
             self.population.append(Experiment(self.num_rays, a, c, self.mirror_right_lim, self.screen_position))
 
     def fitness_function(self, arr):
-        # arr = np.histogram(arr, bins='auto', density=True)
-        # print(arr)
         ksstat, p_value = kstest(arr, "norm", args=(0, 0.2))
         res = [ksstat, p_value]
-        #andtest = anderson(arr)
-        #res = [andtest.fit_result.params[1]-0.2, andtest.fit_result.params[0]]
-        
-        # ind = np.histogram(screen_colls, bins=100, density=True)
-        # print(ind)
-
-        # print(len(ind), len(ind[0]), len(ind[1]))
-        # x_axis = np.arange(-2, 2, 0.001)
-        # arr = norm.pdf(x_axis, 0, 0.2)
-        # print(arr)
-
         return res
     
     def evaluate(self):
@@ -74,7 +54,11 @@ class RayOpt:
                         self.best_ind.all_colls, 
                         self.best_ind.light_source, 
                         self.best_ind.screen_position, 
-                        epoch)
+                        epoch,
+                        self.path,
+                        self.best_ind.mirror.a,
+                        self.best_ind.mirror.c,
+                        self.best_ind.fitness)
     
     def cross_section(self):
         temp_pop = []
@@ -108,26 +92,26 @@ class RayOpt:
             self.select_best(epoch)
             print('Epoch: {}; Best individual: {}'.format(epoch, self.best_fitness))
             if self.best_fitness <= self.threshold:
-                print(self.best_ind.mirror.a)
-                print(self.best_ind.mirror.c)
+                print('Best parameter a: {}'.format(self.best_ind.mirror.a))
+                print('Best parameter c: {}'.format(self.best_ind.mirror.c))
                 break
             self.cross_section()
             self.mutation()
 
-        print(self.best_ind.mirror.a)
-        print(self.best_ind.mirror.c)
+        print('Best parameter a: {}'.format(self.best_ind.mirror.a))
+        print('Best parameter c: {}'.format(self.best_ind.mirror.c))
 
 
 def main():
-    settings = {'pop_size': 250,
-                'num_genes': 2,
-                'epochs': 100,
-                'selection_ratio': 0.5,
-                'mutation_prob': 0.05,
-                'num_rays': 1440,
-                'mirror_right_lim': 0.2,
-                'screen_position': 2,
-                'threshold': 0.02}
+    with open('config.yml', 'r') as file:
+        settings = yaml.safe_load(file)
+
+    now = datetime.now()
+    now = now.strftime("%d_%m_%Y-%H_%M_%S")
+    path = './results/experiment_{}'.format(now)
+    if not os.path.isdir(path):
+        os.makedirs(path)
+    settings['path'] = path
     
     optimizer = RayOpt(settings)
     optimizer.optimize()
